@@ -3,14 +3,15 @@
  *
  * Hotel Booking Management System
  *
- * Version 3.1
+ * Version 4.1
  *
- * This version introduces centralized room inventory
- * management using HashMap to maintain a single source
- * of truth for room availability.
+ * This version introduces Room Search functionality
+ * with read-only access to centralized inventory.
+ *
+ * Search operations do NOT modify system state.
  *
  * @author Daksh Chaudhary
- * @version 3.1
+ * @version 4.1
  */
 
 import java.util.HashMap;
@@ -76,19 +77,13 @@ class RoomInventory {
 
     public RoomInventory() {
         availabilityMap = new HashMap<>();
-
-        // Initialize room availability
         availabilityMap.put("Single Room", 5);
         availabilityMap.put("Double Room", 3);
-        availabilityMap.put("Suite Room", 2);
+        availabilityMap.put("Suite Room", 0); // intentionally 0 to test filtering
     }
 
     public int getAvailability(String roomType) {
         return availabilityMap.getOrDefault(roomType, 0);
-    }
-
-    public void updateAvailability(String roomType, int newCount) {
-        availabilityMap.put(roomType, newCount);
     }
 
     public void displayInventory() {
@@ -96,6 +91,29 @@ class RoomInventory {
         for (Map.Entry<String, Integer> entry : availabilityMap.entrySet()) {
             System.out.println(entry.getKey() + " -> Available: " + entry.getValue());
         }
+    }
+}
+
+// --------------------- SEARCH SERVICE (READ-ONLY) ---------------------
+
+class RoomSearchService {
+
+    public void searchAvailableRooms(Room[] rooms, RoomInventory inventory) {
+
+        System.out.println("\n========== Available Rooms ==========");
+
+        for (Room room : rooms) {
+
+            int available = inventory.getAvailability(room.getRoomType());
+
+            // Defensive check: show only rooms with availability > 0
+            if (available > 0) {
+                room.displayRoomDetails();
+                System.out.println("Available Rooms: " + available);
+            }
+        }
+
+        System.out.println("======================================");
     }
 }
 
@@ -107,30 +125,22 @@ public class BookMyStay {
 
         displayWelcomeMessage();
 
-        // Create room objects
+        // Initialize room domain objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
+        Room[] rooms = { single, doubleRoom, suite };
+
         // Centralized inventory
         RoomInventory inventory = new RoomInventory();
 
-        // Display room details + availability
-        single.displayRoomDetails();
-        System.out.println("Available: " + inventory.getAvailability(single.getRoomType()));
+        // Search Service (Read-Only Access)
+        RoomSearchService searchService = new RoomSearchService();
 
-        doubleRoom.displayRoomDetails();
-        System.out.println("Available: " + inventory.getAvailability(doubleRoom.getRoomType()));
+        // Guest initiates search
+        searchService.searchAvailableRooms(rooms, inventory);
 
-        suite.displayRoomDetails();
-        System.out.println("Available: " + inventory.getAvailability(suite.getRoomType()));
-
-        System.out.println("---------------------------------------");
-
-        // Display entire inventory
-        inventory.displayInventory();
-
-        System.out.println("---------------------------------------");
         System.out.println("Application terminated successfully.");
     }
 
@@ -138,7 +148,7 @@ public class BookMyStay {
         System.out.println("=======================================");
         System.out.println("        Welcome to Book My Stay        ");
         System.out.println("     Hotel Booking Management System   ");
-        System.out.println("                Version 3.1            ");
+        System.out.println("                Version 4.1            ");
         System.out.println("=======================================");
     }
 }
