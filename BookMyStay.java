@@ -3,15 +3,20 @@
  *
  * Hotel Booking Management System
  *
- * Version 2.0
+ * Version 3.1
  *
- * This version introduces object-oriented domain modeling
- * using abstraction and inheritance to represent different
- * room types and their static availability.
+ * This version introduces centralized room inventory
+ * management using HashMap to maintain a single source
+ * of truth for room availability.
  *
  * @author Daksh Chaudhary
- * @version 2.0
+ * @version 3.1
  */
+
+import java.util.HashMap;
+import java.util.Map;
+
+// --------------------- ROOM DOMAIN MODEL ---------------------
 
 abstract class Room {
 
@@ -45,8 +50,6 @@ abstract class Room {
     }
 }
 
-// Concrete Room Types
-
 class SingleRoom extends Room {
     public SingleRoom() {
         super("Single Room", 1, 2000.0);
@@ -65,31 +68,67 @@ class SuiteRoom extends Room {
     }
 }
 
+// --------------------- INVENTORY MANAGEMENT ---------------------
+
+class RoomInventory {
+
+    private Map<String, Integer> availabilityMap;
+
+    public RoomInventory() {
+        availabilityMap = new HashMap<>();
+
+        // Initialize room availability
+        availabilityMap.put("Single Room", 5);
+        availabilityMap.put("Double Room", 3);
+        availabilityMap.put("Suite Room", 2);
+    }
+
+    public int getAvailability(String roomType) {
+        return availabilityMap.getOrDefault(roomType, 0);
+    }
+
+    public void updateAvailability(String roomType, int newCount) {
+        availabilityMap.put(roomType, newCount);
+    }
+
+    public void displayInventory() {
+        System.out.println("========== Current Room Inventory ==========");
+        for (Map.Entry<String, Integer> entry : availabilityMap.entrySet()) {
+            System.out.println(entry.getKey() + " -> Available: " + entry.getValue());
+        }
+    }
+}
+
+// --------------------- APPLICATION ENTRY ---------------------
+
 public class BookMyStay {
 
     public static void main(String[] args) {
 
         displayWelcomeMessage();
 
-        // Creating room objects (Polymorphism)
+        // Create room objects
         Room single = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suite = new SuiteRoom();
 
-        // Static availability variables
-        int singleAvailable = 5;
-        int doubleAvailable = 3;
-        int suiteAvailable = 2;
+        // Centralized inventory
+        RoomInventory inventory = new RoomInventory();
 
-        // Display details
+        // Display room details + availability
         single.displayRoomDetails();
-        System.out.println("Available Rooms: " + singleAvailable);
+        System.out.println("Available: " + inventory.getAvailability(single.getRoomType()));
 
         doubleRoom.displayRoomDetails();
-        System.out.println("Available Rooms: " + doubleAvailable);
+        System.out.println("Available: " + inventory.getAvailability(doubleRoom.getRoomType()));
 
         suite.displayRoomDetails();
-        System.out.println("Available Rooms: " + suiteAvailable);
+        System.out.println("Available: " + inventory.getAvailability(suite.getRoomType()));
+
+        System.out.println("---------------------------------------");
+
+        // Display entire inventory
+        inventory.displayInventory();
 
         System.out.println("---------------------------------------");
         System.out.println("Application terminated successfully.");
@@ -99,7 +138,7 @@ public class BookMyStay {
         System.out.println("=======================================");
         System.out.println("        Welcome to Book My Stay        ");
         System.out.println("     Hotel Booking Management System   ");
-        System.out.println("                Version 2.0            ");
+        System.out.println("                Version 3.1            ");
         System.out.println("=======================================");
     }
 }
