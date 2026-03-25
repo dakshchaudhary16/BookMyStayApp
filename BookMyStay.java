@@ -3,18 +3,18 @@
  *
  * Hotel Booking Management System
  *
- * Version 6.1
+ * Version 8.1
  *
- * This version introduces Reservation Confirmation
- * and Safe Room Allocation with double-booking prevention.
+ * This version introduces Booking History and Reporting
+ * for operational visibility and audit tracking.
  *
  * @author Daksh Chaudhary
- * @version 6.1
+ * @version 8.1
  */
 
 import java.util.*;
 
-// --------------------- INVENTORY SERVICE ---------------------
+// --------------------- INVENTORY ---------------------
 
 class RoomInventory {
 
@@ -34,48 +34,47 @@ class RoomInventory {
     public void decrementAvailability(String roomType) {
         availabilityMap.put(roomType, availabilityMap.get(roomType) - 1);
     }
-
-    public void displayInventory() {
-        System.out.println("\n===== Updated Inventory =====");
-        for (Map.Entry<String, Integer> entry : availabilityMap.entrySet()) {
-            System.out.println(entry.getKey() + " -> Available: " + entry.getValue());
-        }
-    }
 }
 
 // --------------------- RESERVATION ---------------------
 
 class Reservation {
 
+    private String reservationId;
     private String guestName;
-    private String requestedRoomType;
+    private String roomType;
+    private String roomId;
 
-    public Reservation(String guestName, String requestedRoomType) {
+    public Reservation(String reservationId, String guestName, String roomType, String roomId) {
+        this.reservationId = reservationId;
         this.guestName = guestName;
-        this.requestedRoomType = requestedRoomType;
+        this.roomType = roomType;
+        this.roomId = roomId;
     }
 
-    public String getGuestName() {
-        return guestName;
-    }
+    public String getReservationId() { return reservationId; }
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
+    public String getRoomId() { return roomId; }
 
-    public String getRequestedRoomType() {
-        return requestedRoomType;
+    @Override
+    public String toString() {
+        return reservationId + " | " + guestName + " | " + roomType + " | RoomID: " + roomId;
     }
 }
 
-// --------------------- BOOKING REQUEST QUEUE ---------------------
+// --------------------- QUEUE ---------------------
 
 class BookingRequestQueue {
 
-    private Queue<Reservation> queue = new LinkedList<>();
+    private Queue<String[]> queue = new LinkedList<>();
 
-    public void addRequest(Reservation reservation) {
-        queue.offer(reservation);
+    public void addRequest(String guest, String roomType) {
+        queue.offer(new String[]{guest, roomType});
     }
 
-    public Reservation getNextRequest() {
-        return queue.poll(); // FIFO
+    public String[] getNextRequest() {
+        return queue.poll();
     }
 
     public boolean hasRequests() {
@@ -83,60 +82,95 @@ class BookingRequestQueue {
     }
 }
 
+// --------------------- BOOKING HISTORY ---------------------
+
+class BookingHistory {
+
+    private List<Reservation> history = new ArrayList<>();
+
+    public void addReservation(Reservation reservation) {
+        history.add(reservation);
+    }
+
+    public List<Reservation> getAllReservations() {
+        return history;
+    }
+}
+
+// --------------------- REPORT SERVICE ---------------------
+
+class BookingReportService {
+
+    public void displayAllBookings(List<Reservation> reservations) {
+
+        System.out.println("\n===== Booking History =====");
+
+        for (Reservation r : reservations) {
+            System.out.println(r);
+        }
+    }
+
+    public void generateSummary(List<Reservation> reservations) {
+
+        Map<String, Integer> countMap = new HashMap<>();
+
+        for (Reservation r : reservations) {
+            countMap.put(r.getRoomType(),
+                    countMap.getOrDefault(r.getRoomType(), 0) + 1);
+        }
+
+        System.out.println("\n===== Booking Summary =====");
+        for (String type : countMap.keySet()) {
+            System.out.println(type + " -> " + countMap.get(type) + " bookings");
+        }
+    }
+}
+
 // --------------------- BOOKING SERVICE ---------------------
 
 class BookingService {
 
-    private Set<String> allocatedRoomIds = new HashSet<>();
-    private Map<String, Set<String>> roomAllocationMap = new HashMap<>();
     private int roomCounter = 1;
+    private int reservationCounter = 1;
 
-    public void processBookings(BookingRequestQueue queue, RoomInventory inventory) {
+    public List<Reservation> processBookings(
+            BookingRequestQueue queue,
+            RoomInventory inventory,
+            BookingHistory history) {
+
+        List<Reservation> confirmed = new ArrayList<>();
 
         while (queue.hasRequests()) {
 
-            Reservation reservation = queue.getNextRequest();
-            String roomType = reservation.getRequestedRoomType();
-
-            System.out.println("\nProcessing booking for: " + reservation.getGuestName());
+            String[] req = queue.getNextRequest();
+            String guest = req[0];
+            String roomType = req[1];
 
             if (inventory.getAvailability(roomType) > 0) {
 
-                String roomId = generateUniqueRoomId(roomType);
-
-                allocatedRoomIds.add(roomId);
-
-                roomAllocationMap
-                        .computeIfAbsent(roomType, k -> new HashSet<>())
-                        .add(roomId);
+                String roomId = roomType.substring(0, 3).toUpperCase() + "-" + roomCounter++;
+                String reservationId = "RES-" + reservationCounter++;
 
                 inventory.decrementAvailability(roomType);
 
-                System.out.println("Booking Confirmed!");
-                System.out.println("Guest: " + reservation.getGuestName());
-                System.out.println("Room Type: " + roomType);
-                System.out.println("Assigned Room ID: " + roomId);
+                Reservation reservation = new Reservation(
+                        reservationId, guest, roomType, roomId);
+
+                confirmed.add(reservation);
+                history.addReservation(reservation);
+
+                System.out.println("Booking Confirmed: " + reservation);
 
             } else {
-                System.out.println("Booking Failed - No rooms available for " + roomType);
+                System.out.println("Booking Failed for " + guest);
             }
         }
-    }
 
-    private String generateUniqueRoomId(String roomType) {
-
-        String prefix = roomType.replace(" ", "").substring(0, 3).toUpperCase();
-        String roomId;
-
-        do {
-            roomId = prefix + "-" + roomCounter++;
-        } while (allocatedRoomIds.contains(roomId));
-
-        return roomId;
+        return confirmed;
     }
 }
 
-// --------------------- APPLICATION ENTRY ---------------------
+// --------------------- MAIN ---------------------
 
 public class BookMyStay {
 
@@ -146,18 +180,21 @@ public class BookMyStay {
 
         RoomInventory inventory = new RoomInventory();
         BookingRequestQueue queue = new BookingRequestQueue();
+        BookingHistory history = new BookingHistory();
         BookingService bookingService = new BookingService();
+        BookingReportService reportService = new BookingReportService();
 
-        // Add booking requests (FIFO order)
-        queue.addRequest(new Reservation("Amit", "Single Room"));
-        queue.addRequest(new Reservation("Riya", "Single Room"));
-        queue.addRequest(new Reservation("Karan", "Single Room")); // should fail
+        queue.addRequest("Amit", "Single Room");
+        queue.addRequest("Riya", "Double Room");
+        queue.addRequest("Karan", "Suite Room");
 
-        // Process allocation
-        bookingService.processBookings(queue, inventory);
+        bookingService.processBookings(queue, inventory, history);
 
-        // Display updated inventory
-        inventory.displayInventory();
+        // Admin views history
+        reportService.displayAllBookings(history.getAllReservations());
+
+        // Admin views summary
+        reportService.generateSummary(history.getAllReservations());
 
         System.out.println("\nApplication terminated successfully.");
     }
@@ -166,7 +203,7 @@ public class BookMyStay {
         System.out.println("=======================================");
         System.out.println("        Welcome to Book My Stay        ");
         System.out.println("     Hotel Booking Management System   ");
-        System.out.println("                Version 6.1            ");
+        System.out.println("                Version 8.1            ");
         System.out.println("=======================================");
     }
 }
